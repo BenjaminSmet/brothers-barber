@@ -400,3 +400,55 @@ body {
   font-size: 0.8rem;
   font-weight: 600;
 }
+
+/* Confirmed booking screen */
+.confirmed-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 60vh; padding: 2rem;
+}
+.confirmed-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3rem 2.5rem; text-align: center;
+  max-width: 440px; width: 100%;
+}
+.confirmed-icon { font-size: 3.5rem; margin-bottom: 1rem; }
+.confirmed-card h2 {
+  font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem;
+  letter-spacing: 3px; margin-bottom: 0.25rem;
+}
+.confirmed-sub { color: var(--gray-light); margin-bottom: 1.5rem; font-size: 0.95rem; }
+.confirmed-details {
+  background: var(--gray); border-radius: 12px;
+  padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+  display: flex; flex-direction: column; gap: 0.75rem; text-align: left;
+}
+.confirmed-detail-row {
+  display: flex; align-items: center; gap: 0.75rem; font-size: 1rem;
+}
+.confirmed-detail-row strong { font-size: 1rem; }
+.confirmed-email-note {
+  font-size: 0.8rem; color: var(--gray-light); margin-bottom: 1.25rem;
+}
+.cal-add-btn {
+  width: 100%; padding: 1rem; background: var(--success); border: none;
+  color: white; border-radius: 12px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 1rem; font-weight: 700;
+  letter-spacing: 0.5px; margin-bottom: 0.75rem; transition: all 0.15s;
+}
+.cal-add-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.book-another-btn {
+  width: 100%; padding: 0.75rem; background: none;
+  border: 1px solid var(--border); color: var(--gray-light);
+  border-radius: 12px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem; transition: all 0.15s;
+}
+.book-another-btn:hover { border-color: var(--white); color: var(--white); }
+
+/* Mini calendar button in bookings list */
+.cal-mini-btn {
+  background: var(--gray); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.35rem 0.6rem;
+  cursor: pointer; font-size: 1rem; transition: all 0.15s;
+  line-height: 1;
+}
+.cal-mini-btn:hover { border-color: var(--success); transform: translateY(-1px); }

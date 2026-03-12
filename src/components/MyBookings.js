@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
-import {
-  collection, query, where, getDocs, deleteDoc, doc
-} from "firebase/firestore";
+import { collection, query, where, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { sendCancellationEmails, generateIcs, makeIcsDataUri } from "../utils/emailAndCalendar";
 
 export default function MyBookings({ user }) {
   const [bookings, setBookings] = useState([]);
@@ -16,10 +15,7 @@ export default function MyBookings({ user }) {
 
   useEffect(() => {
     const fetchBookings = async () => {
-      const q = query(
-        collection(db, "bookings"),
-        where("userId", "==", user.uid)
-      );
+      const q = query(collection(db, "bookings"), where("userId", "==", user.uid));
       const snap = await getDocs(q);
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
@@ -30,15 +26,40 @@ export default function MyBookings({ user }) {
     fetchBookings();
   }, [user.uid]);
 
-  const handleCancel = async (bookingId) => {
+  const handleCancel = async (booking) => {
     if (!window.confirm("Cancel this booking?")) return;
-    await deleteDoc(doc(db, "bookings", bookingId));
-    setBookings(prev => prev.filter(b => b.id !== bookingId));
+    await deleteDoc(doc(db, "bookings", booking.id));
+    setBookings(prev => prev.filter(b => b.id !== booking.id));
+
+    try {
+      await sendCancellationEmails({
+        userName: booking.userName,
+        userEmail: booking.userEmail,
+        slotDate: booking.slotDate.toDate(),
+        slotTime: booking.slotTime,
+        cancelledByAdmin: false,
+      });
+    } catch (e) {
+      console.warn("Cancellation email failed:", e);
+    }
+
     showToast("Booking cancelled.");
   };
 
-  const now = new Date();
+  const handleAddToCalendar = (booking) => {
+    const ics = generateIcs({
+      title: "✂️ Haircut — Barber Benjamin",
+      start: booking.slotDate.toDate(),
+      description: `Haircut appointment with Barber Benjamin at ${booking.slotTime}`,
+    });
+    const uri = makeIcsDataUri(ics);
+    const a = document.createElement("a");
+    a.href = uri;
+    a.download = "haircut-barber-benjamin.ics";
+    a.click();
+  };
 
+  const now = new Date();
   const upcoming = bookings.filter(b => b.slotDate.toDate() >= now);
   const past = bookings.filter(b => b.slotDate.toDate() < now);
 
@@ -60,16 +81,19 @@ export default function MyBookings({ user }) {
         <div className="bookings-list">
           {upcoming.length > 0 && (
             <>
-              <h3 style={{fontFamily:"'Bebas Neue', sans-serif", letterSpacing:"2px", marginBottom:"0.5rem"}}>UPCOMING</h3>
+              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "2px", marginBottom: "0.5rem" }}>UPCOMING</h3>
               {upcoming.map(b => (
                 <div key={b.id} className="booking-item">
                   <div className="booking-info">
-                    <h4>{b.slotDate.toDate().toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric", year:"numeric" })}</h4>
-                    <p>⏰ {b.slotTime || b.slotDate.toDate().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}</p>
+                    <h4>{b.slotDate.toDate().toLocaleDateString("en-GB", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</h4>
+                    <p>⏰ {b.slotTime}</p>
                   </div>
-                  <div style={{display:"flex", alignItems:"center", gap:"0.75rem"}}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                     <span className="booking-status status-upcoming">Upcoming</span>
-                    <button className="cancel-btn" onClick={() => handleCancel(b.id)}>Cancel</button>
+                    <button className="cal-mini-btn" onClick={() => handleAddToCalendar(b)} title="Add to Calendar">
+                      📅
+                    </button>
+                    <button className="cancel-btn" onClick={() => handleCancel(b)}>Cancel</button>
                   </div>
                 </div>
               ))}
@@ -78,12 +102,12 @@ export default function MyBookings({ user }) {
 
           {past.length > 0 && (
             <>
-              <h3 style={{fontFamily:"'Bebas Neue', sans-serif", letterSpacing:"2px", margin:"1rem 0 0.5rem", color:"var(--gray-light)"}}>PAST</h3>
+              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "2px", margin: "1rem 0 0.5rem", color: "var(--gray-light)" }}>PAST</h3>
               {past.map(b => (
                 <div key={b.id} className="booking-item past">
                   <div className="booking-info">
-                    <h4>{b.slotDate.toDate().toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric", year:"numeric" })}</h4>
-                    <p>⏰ {b.slotTime || b.slotDate.toDate().toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" })}</p>
+                    <h4>{b.slotDate.toDate().toLocaleDateString("en-GB", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</h4>
+                    <p>⏰ {b.slotTime}</p>
                   </div>
                   <span className="booking-status status-past">Done</span>
                 </div>
