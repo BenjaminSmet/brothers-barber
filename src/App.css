@@ -462,3 +462,66 @@ body {
 .cal-badge.loading { background: rgba(230,126,34,0.1); color: var(--warning); border: 1px solid rgba(230,126,34,0.2); }
 .cal-badge.loaded  { background: rgba(39,174,96,0.1);  color: var(--success); border: 1px solid rgba(39,174,96,0.2); }
 .cal-badge.error   { background: rgba(192,57,43,0.1);  color: var(--red);     border: 1px solid rgba(192,57,43,0.2); }
+
+/* ── Custom modal ── */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 1rem;
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-box {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 2rem; max-width: 360px; width: 100%;
+  animation: slideUp 0.2s ease;
+}
+.modal-message {
+  font-size: 1rem; font-weight: 500; text-align: center;
+  margin-bottom: 1.5rem; line-height: 1.5;
+}
+.modal-actions { display: flex; gap: 0.75rem; }
+.modal-cancel {
+  flex: 1; padding: 0.75rem; background: var(--gray);
+  border: 1px solid var(--border); color: var(--white);
+  border-radius: 10px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.95rem;
+  transition: background 0.15s;
+}
+.modal-cancel:hover { background: var(--gray-mid); }
+.modal-confirm {
+  flex: 1; padding: 0.75rem; background: var(--red);
+  border: none; color: white; border-radius: 10px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 700;
+  transition: background 0.15s;
+}
+.modal-confirm:hover { background: var(--red-dark); }
+
+/* ── Calendar day states ── */
+.cal-day.has-busy  { background: rgba(192,57,43,0.12); color: var(--red); }
+.cal-day.has-free  { color: var(--white); }
+.busy-dot { background: var(--red) !important; }
+
+/* ── Day detail panel ── */
+.day-detail {
+  background: var(--gray); border-radius: 12px;
+  padding: 1rem 1.25rem; margin-top: 0.5rem;
+}
+.day-detail-title {
+  font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem;
+  letter-spacing: 1px; margin-bottom: 0.75rem;
+}
+.day-detail-section { margin-bottom: 0.75rem; }
+.day-detail-label {
+  display: block; font-size: 0.75rem; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.4rem;
+}
+.day-detail-label.busy { color: var(--red); }
+.day-detail-label.free { color: var(--success); }
+.day-event-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+.day-event-row.busy { background: rgba(192,57,43,0.1); }
+.day-event-row.free { background: rgba(39,174,96,0.1); }

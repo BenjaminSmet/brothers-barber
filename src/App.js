@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { auth, db } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, query, where, getDocs } from "firebase/firestore";
 import Login from "./components/Login";
 import Navbar from "./components/Navbar";
 import BookingPage from "./components/BookingPage";
@@ -21,13 +21,16 @@ export default function App() {
     return onAuthStateChanged(auth, async (u) => {
       if (u) {
         setUser(u);
-        // Admin is always allowed
         if (u.email === ADMIN_EMAIL) {
           setAllowed(true);
         } else {
-          // Check whitelist
-          const snap = await getDoc(doc(db, "allowedUsers", u.email));
-          setAllowed(snap.exists());
+          // Query by email field, not document ID
+          const q = query(
+            collection(db, "allowedUsers"),
+            where("email", "==", u.email.toLowerCase())
+          );
+          const snap = await getDocs(q);
+          setAllowed(!snap.empty);
         }
       } else {
         setUser(null);
@@ -50,7 +53,7 @@ export default function App() {
       <div className="blocked-card">
         <span className="blocked-icon">🚫</span>
         <h2>Not on the list</h2>
-        <p>Your account (<strong>{user.email}</strong>) hasn't been approved yet.<br />Ask your barber to add you!</p>
+        <p>Your account (<strong>{user.email}</strong>) hasn't been approved yet.<br />Ask Benjamin to add you!</p>
         <button onClick={() => signOut(auth)}>Sign out</button>
       </div>
     </div>
