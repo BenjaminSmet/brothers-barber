@@ -9,7 +9,7 @@ export default function Login() {
       <div className="login-bg-text">✂</div>
       <div className="login-card">
         <span className="login-scissors">✂️</span>
-        <h1>BROTHERS<span>CUT</span></h1>
+        <h1>BARBER <span>BENJAMIN</span></h1>
         <p className="login-tagline">Book your next haircut. Family only.</p>
         <button className="google-btn" onClick={handleLogin}>
           <img

@@ -4,7 +4,7 @@ import { auth } from "../firebase";
 export default function Navbar({ user, page, setPage, isAdmin }) {
   return (
     <nav className="navbar">
-      <div className="navbar-brand">✂ BROTHERS<span>CUT</span></div>
+      <div className="navbar-brand">✂ BARBER <span>BENJAMIN</span></div>
       <div className="navbar-nav">
         <button
           className={`nav-btn ${page === "book" ? "active" : ""}`}

@@ -352,3 +352,51 @@ body {
   font-size: 0.7rem; background: rgba(192,57,43,0.15); color: var(--red);
   padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 700; letter-spacing: 1px;
 }
+
+/* iCal instructions */
+.ical-instructions {
+  margin-top: 1rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  color: var(--gray-light);
+}
+.ical-instructions strong {
+  color: var(--white);
+  margin-bottom: 0.1rem;
+}
+
+/* Slot preview */
+.slot-preview {
+  background: rgba(39, 174, 96, 0.07);
+  border: 1px solid rgba(39, 174, 96, 0.25);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.slot-preview-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--success);
+  display: block;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.5px;
+}
+.slot-preview-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.slot-pill {
+  background: rgba(39, 174, 96, 0.15);
+  color: var(--success);
+  border-radius: 20px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
