@@ -452,3 +452,13 @@ body {
   line-height: 1;
 }
 .cal-mini-btn:hover { border-color: var(--success); transform: translateY(-1px); }
+
+/* Calendar sync badge */
+.cal-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1rem; border-radius: 10px;
+  font-size: 0.82rem; font-weight: 600; margin-bottom: 1.25rem;
+}
+.cal-badge.loading { background: rgba(230,126,34,0.1); color: var(--warning); border: 1px solid rgba(230,126,34,0.2); }
+.cal-badge.loaded  { background: rgba(39,174,96,0.1);  color: var(--success); border: 1px solid rgba(39,174,96,0.2); }
+.cal-badge.error   { background: rgba(192,57,43,0.1);  color: var(--red);     border: 1px solid rgba(192,57,43,0.2); }

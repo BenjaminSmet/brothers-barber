@@ -64,7 +64,7 @@ export default function App() {
       <main className="main-content">
         {page === "book" && <BookingPage user={user} />}
         {page === "mybookings" && <MyBookings user={user} />}
-        {page === "admin" && isAdmin && <AdminPanel adminEmail={ADMIN_EMAIL} />}
+        {page === "admin" && isAdmin && <AdminPanel />}
       </main>
     </div>
   );
