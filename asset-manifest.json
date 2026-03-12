@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/brothers-barber/static/css/main.4054a763.css",
-    "main.js": "/brothers-barber/static/js/main.31816f6f.js",
+    "main.js": "/brothers-barber/static/js/main.63bc3f6e.js",
     "static/js/453.85f5dd35.chunk.js": "/brothers-barber/static/js/453.85f5dd35.chunk.js",
     "index.html": "/brothers-barber/index.html",
     "main.4054a763.css.map": "/brothers-barber/static/css/main.4054a763.css.map",
-    "main.31816f6f.js.map": "/brothers-barber/static/js/main.31816f6f.js.map",
+    "main.63bc3f6e.js.map": "/brothers-barber/static/js/main.63bc3f6e.js.map",
     "453.85f5dd35.chunk.js.map": "/brothers-barber/static/js/453.85f5dd35.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.4054a763.css",
-    "static/js/main.31816f6f.js"
+    "static/js/main.63bc3f6e.js"
   ]
 }
