@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import {
   collection, addDoc, getDocs, deleteDoc, doc,
-  query, orderBy, Timestamp, where
+  query, Timestamp, where
 } from "firebase/firestore";
 
 export default function AdminPanel({ adminEmail }) {
@@ -31,10 +31,11 @@ export default function AdminPanel({ adminEmail }) {
   // Load slots
   useEffect(() => {
     const fetchSlots = async () => {
-      const q = query(collection(db, "slots"), orderBy("datetime", "asc"));
+      const q = query(collection(db, "slots"));
       const snap = await getDocs(q);
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => a.datetime.toDate() - b.datetime.toDate());
       setSlots(list);
 
       // Which are booked?
@@ -60,14 +61,15 @@ export default function AdminPanel({ adminEmail }) {
   // Load upcoming bookings
   useEffect(() => {
     const fetchBookings = async () => {
+      const now = Timestamp.fromDate(new Date());
       const q = query(
         collection(db, "bookings"),
-        where("slotDate", ">=", Timestamp.fromDate(new Date())),
-        orderBy("slotDate", "asc")
+        where("slotDate", ">=", now)
       );
       const snap = await getDocs(q);
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => a.slotDate.toDate() - b.slotDate.toDate());
       setUpcomingBookings(list);
     };
     fetchBookings();

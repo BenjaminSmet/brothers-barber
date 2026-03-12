@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
 import {
-  collection, query, where, getDocs, deleteDoc, doc, orderBy
+  collection, query, where, getDocs, deleteDoc, doc
 } from "firebase/firestore";
 
 export default function MyBookings({ user }) {
@@ -18,12 +18,12 @@ export default function MyBookings({ user }) {
     const fetchBookings = async () => {
       const q = query(
         collection(db, "bookings"),
-        where("userId", "==", user.uid),
-        orderBy("slotDate", "asc")
+        where("userId", "==", user.uid)
       );
       const snap = await getDocs(q);
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => a.slotDate.toDate() - b.slotDate.toDate());
       setBookings(list);
       setLoading(false);
     };
