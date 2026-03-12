@@ -6,22 +6,28 @@ import {
 } from "firebase/firestore";
 import { generateIcs, makeIcsDataUri } from "../utils/emailAndCalendar";
 
-const CORS_PROXY = process.env.REACT_APP_CORS_PROXY;
-const ICAL_PRIVE = process.env.REACT_APP_ICAL_PRIVE;
-const ICAL_WERK  = process.env.REACT_APP_ICAL_WERK;
+const CORS_PROXY  = process.env.REACT_APP_CORS_PROXY;
+const ICAL_BARBER = process.env.REACT_APP_ICAL_BARBER;
 
+// ── iCal fetch ────────────────────────────────────────────────
 async function fetchIcal(url) {
   const res = await fetch(CORS_PROXY + encodeURIComponent(url));
   if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
   return res.text();
 }
 
-// ── iCal parser ───────────────────────────────────────────────
-function parseIcal(text) {
-  const events = [];
+// ── iCal parser — returns availability windows ────────────────
+// Looks for events whose summary starts with "Available" (case-insensitive)
+// e.g. "Available 14:00-17:00" or just "Available"
+function parseAvailability(text) {
+  const windows = [];
   const blocks = text.split("BEGIN:VEVENT").slice(1);
+
   for (const block of blocks) {
-    const summary = (block.match(/SUMMARY:(.+)/) || [])[1]?.trim() || "Busy";
+    const summary = (block.match(/SUMMARY:(.+)/) || [])[1]?.trim() || "";
+
+    // Only process events marked as available
+    if (!summary.toLowerCase().startsWith("available")) continue;
 
     const parseRaw = (raw) => {
       if (!raw) return null;
@@ -30,7 +36,6 @@ function parseIcal(text) {
       const y  = +clean.slice(0, 4);
       const mo = +clean.slice(4, 6) - 1;
       const d  = +clean.slice(6, 8);
-      // All-day events have no time component (length 8)
       if (clean.length === 8) return new Date(y, mo, d, 0, 0);
       const h = +clean.slice(9, 11);
       const m = +clean.slice(11, 13);
@@ -44,23 +49,19 @@ function parseIcal(text) {
     const start = parseRaw(dtStartRaw);
     const end   = parseRaw(dtEndRaw);
     if (!start || !end) continue;
-    events.push({ summary, start, end });
+
+    windows.push({ summary, start, end });
   }
-  return events;
+  return windows;
 }
 
-
-// ── Slot generator ────────────────────────────────────────────
-function generateSlots(date, fromTime, toTime, busyEvents) {
-  const [fh, fm] = fromTime.split(":").map(Number);
-  const [th, tm] = toTime.split(":").map(Number);
+// ── Slot generator — 30-min slots within a window ────────────
+function generateSlotsFromWindow(start, end) {
   const slots = [];
-  let cur = new Date(date); cur.setHours(fh, fm, 0, 0);
-  const end = new Date(date); end.setHours(th, tm, 0, 0);
+  let cur = new Date(start);
   while (cur < end) {
     const slotEnd = new Date(cur.getTime() + 30 * 60000);
-    const isBusy = busyEvents.some(ev => cur < ev.end && slotEnd > ev.start);
-    if (!isBusy) slots.push(new Date(cur));
+    if (slotEnd <= end) slots.push(new Date(cur));
     cur = slotEnd;
   }
   return slots;
@@ -81,29 +82,27 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
   );
 }
 
-// ── Calendar view helpers ─────────────────────────────────────
+// ── Calendar helpers ──────────────────────────────────────────
 const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTHS = ["January","February","March","April","May","June",
                 "July","August","September","October","November","December"];
 
+// ── Component ─────────────────────────────────────────────────
 export default function AdminPanel() {
   const [tab, setTab] = useState("slots");
 
-  // Slots
-  const [slotDate, setSlotDate]   = useState("");
-  const [fromTime, setFromTime]   = useState("09:00");
-  const [toTime, setToTime]       = useState("17:00");
+  // iCal availability windows
+  const [availWindows, setAvailWindows] = useState([]);
+  const [calStatus, setCalStatus]       = useState("idle");
+  const [calSummary, setCalSummary]     = useState("");
+
+  // Slots in Firestore
   const [slots, setSlots]         = useState([]);
   const [bookedSet, setBookedSet] = useState(new Set());
 
   // Calendar view
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
-
-  // iCal
-  const [busyEvents, setBusyEvents] = useState([]);
-  const [calStatus, setCalStatus]   = useState("idle");
-  const [calSummary, setCalSummary] = useState("");
 
   // Brothers
   const [newEmail, setNewEmail] = useState("");
@@ -113,10 +112,10 @@ export default function AdminPanel() {
   // Upcoming bookings
   const [upcomingBookings, setUpcomingBookings] = useState([]);
 
-  // Modal
-  const [modal, setModal] = useState(null); // { message, onConfirm }
-
+  // Modal + toast
+  const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
+
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
@@ -124,30 +123,31 @@ export default function AdminPanel() {
 
   const confirm = (message) =>
     new Promise((resolve) => {
-      setModal({ message, onConfirm: () => { setModal(null); resolve(true); } });
+      setModal({
+        message,
+        onConfirm: () => { setModal(null); resolve(true); },
+      });
     });
 
-  // ── Auto-fetch iCal ──────────────────────────────────────────
-  const fetchCalendars = useCallback(async () => {
-    if (!ICAL_PRIVE && !ICAL_WERK) return;
+  // ── Fetch Barber Benjamin calendar ───────────────────────────
+  const fetchCalendar = useCallback(async () => {
+    if (!ICAL_BARBER) return;
     setCalStatus("loading");
     try {
-      const urls = [ICAL_PRIVE, ICAL_WERK].filter(Boolean);
-      const texts = await Promise.all(urls.map(fetchIcal));
-      const allEvents = texts.flatMap(parseIcal);
-      setBusyEvents(allEvents);
+      const text     = await fetchIcal(ICAL_BARBER);
+      const windows  = parseAvailability(text);
+      setAvailWindows(windows);
       setCalStatus("loaded");
-      const names = [ICAL_PRIVE && "Privé", ICAL_WERK && "Werk"].filter(Boolean).join(" + ");
-      setCalSummary(`${names} — ${allEvents.length} events loaded`);
+      setCalSummary(`${windows.length} availability window${windows.length !== 1 ? "s" : ""} found`);
     } catch (err) {
       console.error("iCal fetch failed:", err);
       setCalStatus("error");
     }
   }, []);
 
-  useEffect(() => { fetchCalendars(); }, [fetchCalendars]);
+  useEffect(() => { fetchCalendar(); }, [fetchCalendar]);
 
-  // ── Load slots ───────────────────────────────────────────────
+  // ── Load Firestore data ───────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       const snap  = await getDocs(query(collection(db, "slots")));
@@ -163,7 +163,6 @@ export default function AdminPanel() {
     load();
   }, []);
 
-  // ── Load brothers ────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       const snap = await getDocs(collection(db, "allowedUsers"));
@@ -174,7 +173,6 @@ export default function AdminPanel() {
     load();
   }, []);
 
-  // ── Load upcoming bookings ───────────────────────────────────
   useEffect(() => {
     const load = async () => {
       const now  = Timestamp.fromDate(new Date());
@@ -187,9 +185,9 @@ export default function AdminPanel() {
     load();
   }, []);
 
-  // ── Calendar view data ───────────────────────────────────────
-  const year  = currentMonth.getFullYear();
-  const month = currentMonth.getMonth();
+  // ── Calendar grid helpers ─────────────────────────────────────
+  const year        = currentMonth.getFullYear();
+  const month       = currentMonth.getMonth();
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayDate   = new Date(); todayDate.setHours(0, 0, 0, 0);
@@ -198,64 +196,93 @@ export default function AdminPanel() {
   for (let i = 0; i < firstDay; i++) calDays.push(null);
   for (let d = 1; d <= daysInMonth; d++) calDays.push(new Date(year, month, d));
 
-  // For a given day, what's busy / what slots exist
-  const getBusyForDay = (day) =>
-    busyEvents.filter(ev => {
-      const s = new Date(ev.start); s.setHours(0,0,0,0);
-      const e = new Date(ev.end);   e.setHours(0,0,0,0);
-      const d = new Date(day);      d.setHours(0,0,0,0);
-      return d >= s && d < e;
+  // Availability windows for a given day
+  const getWindowsForDay = (day) =>
+    availWindows.filter(w => {
+      const wDay = new Date(w.start); wDay.setHours(0,0,0,0);
+      const d    = new Date(day);     d.setHours(0,0,0,0);
+      return wDay.getTime() === d.getTime();
     });
 
+  // Firestore slots for a given day
   const getSlotsForDay = (day) =>
     slots.filter(s => s.datetime.toDate().toDateString() === day.toDateString());
 
-  // selected day details
-  const selectedBusy  = selectedDate ? getBusyForDay(selectedDate)  : [];
-  const selectedSlots = selectedDate ? getSlotsForDay(selectedDate) : [];
-
-  // colour a calendar day
-  const getDayClass = (day) => {
-    if (!day) return "cal-day empty";
-    const isPast = day < todayDate;
-    const isToday    = day.toDateString() === todayDate.toDateString();
-    const isSelected = selectedDate?.toDateString() === day.toDateString();
-    const hasBusy    = getBusyForDay(day).length > 0;
-    const hasSlots   = getSlotsForDay(day).length > 0;
-    return [
-      "cal-day",
-      isPast    ? "disabled" : "",
-      isToday   ? "today"    : "",
-      isSelected? "selected" : "",
-      hasBusy   ? "has-busy" : "",
-      hasSlots  ? "has-free" : "",
-    ].filter(Boolean).join(" ");
+  // Pending windows = calendar windows that haven't been imported as slots yet
+  const getPendingWindowsForDay = (day) => {
+    const existingTimes = new Set(
+      getSlotsForDay(day).map(s => s.datetime.toDate().getTime())
+    );
+    return getWindowsForDay(day).filter(w => {
+      const preview = generateSlotsFromWindow(w.start, w.end);
+      // A window is "pending" if none of its slots exist in Firestore yet
+      return preview.some(dt => !existingTimes.has(dt.getTime()));
+    });
   };
 
-  // ── Slot form preview ────────────────────────────────────────
-  const preview = (slotDate && fromTime && toTime)
-    ? generateSlots(new Date(slotDate + "T00:00"), fromTime, toTime, busyEvents)
-    : [];
-  const totalPossible = (slotDate && fromTime && toTime)
-    ? generateSlots(new Date(slotDate + "T00:00"), fromTime, toTime, []).length
-    : 0;
-  const blockedCount = totalPossible - preview.length;
+  const selectedWindows = selectedDate ? getWindowsForDay(selectedDate)     : [];
+  const selectedSlots   = selectedDate ? getSlotsForDay(selectedDate)        : [];
+  const pendingWindows  = selectedDate ? getPendingWindowsForDay(selectedDate) : [];
 
-  // ── Handlers ─────────────────────────────────────────────────
-  const handleAddSlots = async () => {
-    if (!slotDate || !fromTime || !toTime) return showToast("Fill in date and times", "error");
-    if (preview.length === 0) return showToast("No free slots in this window", "error");
+  // ── Import slots from a calendar window ───────────────────────
+  const handleImportWindow = async (window) => {
+    const preview = generateSlotsFromWindow(window.start, window.end);
+    if (preview.length === 0) return showToast("No slots in this window", "error");
+
+    // Skip slots that already exist
+    const existingTimes = new Set(
+      getSlotsForDay(window.start).map(s => s.datetime.toDate().getTime())
+    );
+    const toAdd = preview.filter(dt => !existingTimes.has(dt.getTime()));
+    if (toAdd.length === 0) return showToast("All slots already imported", "error");
+
     const newSlots = [];
-    for (const dt of preview) {
+    for (const dt of toAdd) {
       const label = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       const docRef = await addDoc(collection(db, "slots"), {
         datetime: Timestamp.fromDate(dt), label,
       });
       newSlots.push({ id: docRef.id, datetime: Timestamp.fromDate(dt), label });
     }
-    setSlots(prev => [...prev, ...newSlots].sort((a, b) => a.datetime.toDate() - b.datetime.toDate()));
-    showToast(`✅ ${newSlots.length} slots added!`);
-    setSlotDate("");
+    setSlots(prev =>
+      [...prev, ...newSlots].sort((a, b) => a.datetime.toDate() - b.datetime.toDate())
+    );
+    showToast(`✅ ${newSlots.length} slots imported!`);
+  };
+
+  // Import ALL pending windows across all months at once
+  const handleImportAll = async () => {
+    const allPending = availWindows.filter(w => {
+      const existingTimes = new Set(
+        getSlotsForDay(w.start).map(s => s.datetime.toDate().getTime())
+      );
+      return generateSlotsFromWindow(w.start, w.end)
+        .some(dt => !existingTimes.has(dt.getTime()));
+    });
+
+    if (allPending.length === 0) return showToast("Nothing new to import", "error");
+
+    let total = 0;
+    for (const window of allPending) {
+      const preview = generateSlotsFromWindow(window.start, window.end);
+      const existingTimes = new Set(
+        getSlotsForDay(window.start).map(s => s.datetime.toDate().getTime())
+      );
+      const toAdd = preview.filter(dt => !existingTimes.has(dt.getTime()));
+      const newSlots = [];
+      for (const dt of toAdd) {
+        const label = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        const docRef = await addDoc(collection(db, "slots"), {
+          datetime: Timestamp.fromDate(dt), label,
+        });
+        newSlots.push({ id: docRef.id, datetime: Timestamp.fromDate(dt), label });
+        total++;
+      }
+      setSlots(prev =>
+        [...prev, ...newSlots].sort((a, b) => a.datetime.toDate() - b.datetime.toDate())
+      );
+    }
+    showToast(`✅ ${total} slots imported from all windows!`);
   };
 
   const handleDeleteSlot = async (slotId, label) => {
@@ -269,7 +296,7 @@ export default function AdminPanel() {
     if (!newEmail) return showToast("Enter an email", "error");
     const docRef = await addDoc(collection(db, "allowedUsers"), {
       email: newEmail.trim().toLowerCase(),
-      name: newName.trim(),
+      name:  newName.trim(),
       addedAt: Timestamp.now(),
     });
     setUsers(prev => [...prev, { id: docRef.id, email: newEmail.trim().toLowerCase(), name: newName.trim() }]);
@@ -298,21 +325,21 @@ export default function AdminPanel() {
 
   // ── Calendar status badge ─────────────────────────────────────
   const CalBadge = () => {
-    if (calStatus === "loading") return <div className="cal-badge loading">⏳ Syncing Privé + Werk...</div>;
+    if (calStatus === "loading") return <div className="cal-badge loading">⏳ Reading Barber Benjamin calendar...</div>;
     if (calStatus === "loaded")  return (
-      <div className="cal-badge loaded" style={{cursor:"pointer"}} onClick={fetchCalendars}>
-        ✅ {calSummary} <span style={{opacity:0.6, fontSize:"0.75rem"}}>· click to refresh</span>
+      <div className="cal-badge loaded" style={{cursor:"pointer"}} onClick={fetchCalendar}>
+        ✅ {calSummary} · <span style={{opacity:0.6}}>click to refresh</span>
       </div>
     );
-    if (calStatus === "error")   return (
-      <div className="cal-badge error" style={{cursor:"pointer"}} onClick={fetchCalendars}>
-        ⚠️ Could not load calendars · click to retry
+    if (calStatus === "error") return (
+      <div className="cal-badge error" style={{cursor:"pointer"}} onClick={fetchCalendar}>
+        ⚠️ Could not read calendar · click to retry
       </div>
     );
     return null;
   };
 
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0,0,0,0);
 
   // ─────────────────────────────────────────────────────────────
   return (
@@ -342,11 +369,27 @@ export default function AdminPanel() {
       {tab === "slots" && (
         <div className="slot-manager">
 
+          {/* How it works */}
+          <div className="slot-form">
+            <h3>📱 HOW IT WORKS</h3>
+            <div className="ical-instructions">
+              <strong>On your iPhone:</strong>
+              <span>1. Open Calendar → create an event in your <em>Barber Benjamin</em> calendar</span>
+              <span>2. Name it <strong>Available</strong> (e.g. "Available" from 14:00 to 17:00)</span>
+              <span>3. Come back here → click refresh on the badge above → import the slots</span>
+            </div>
+            {calStatus === "loaded" && availWindows.length > 0 && (
+              <button className="add-slot-btn" style={{marginTop:"1rem"}} onClick={handleImportAll}>
+                ⬇ Import all {availWindows.length} window{availWindows.length !== 1 ? "s" : ""} at once
+              </button>
+            )}
+          </div>
+
           {/* Calendar view */}
           <div className="slot-form">
             <h3>📅 YOUR CALENDAR</h3>
             <p style={{color:"var(--gray-light)", fontSize:"0.85rem", marginBottom:"1rem"}}>
-              Red = busy (Privé/Werk). Green dot = open slots you've added. Click a day to see details.
+              🟡 = availability window from calendar (tap to import) · 🟢 dot = slots already added
             </p>
             <div className="calendar-header">
               <button className="cal-nav" onClick={() => setCurrentMonth(new Date(year, month - 1, 1))}>‹</button>
@@ -355,14 +398,30 @@ export default function AdminPanel() {
             </div>
             <div className="cal-grid" style={{marginBottom:"1rem"}}>
               {DAYS.map(d => <div key={d} className="cal-day-label">{d}</div>)}
-              {calDays.map((day, i) => (
-                <div key={i} className={getDayClass(day)}
-                  onClick={() => day && !day < todayDate && setSelectedDate(day)}>
-                  {day?.getDate()}
-                  {day && getSlotsForDay(day).length > 0 && <div className="cal-dot" />}
-                  {day && getBusyForDay(day).length > 0 && !day < todayDate && <div className="cal-dot busy-dot" />}
-                </div>
-              ))}
+              {calDays.map((day, i) => {
+                if (!day) return <div key={i} className="cal-day empty" />;
+                const isPast     = day < todayDate;
+                const isToday    = day.toDateString() === todayDate.toDateString();
+                const isSelected = selectedDate?.toDateString() === day.toDateString();
+                const hasWindows = getWindowsForDay(day).length > 0;
+                const hasSlots   = getSlotsForDay(day).length > 0;
+                const hasPending = !isPast && getPendingWindowsForDay(day).length > 0;
+                return (
+                  <div key={i}
+                    className={[
+                      "cal-day",
+                      isPast     ? "disabled" : "",
+                      isToday    ? "today"    : "",
+                      isSelected ? "selected" : "",
+                      hasPending ? "has-pending" : (hasWindows && !isPast ? "has-busy" : ""),
+                    ].filter(Boolean).join(" ")}
+                    onClick={() => day && setSelectedDate(day)}
+                  >
+                    {day.getDate()}
+                    {hasSlots && !isPast && <div className="cal-dot" />}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Selected day detail */}
@@ -371,17 +430,35 @@ export default function AdminPanel() {
                 <h4 className="day-detail-title">
                   {selectedDate.toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric" })}
                 </h4>
-                {selectedBusy.length > 0 && (
+
+                {/* Pending windows to import */}
+                {pendingWindows.length > 0 && (
                   <div className="day-detail-section">
-                    <span className="day-detail-label busy">🔴 Busy (from calendar)</span>
-                    {selectedBusy.map((ev, i) => (
-                      <div key={i} className="day-event-row busy">
-                        <span>{ev.summary}</span>
-                        <span>{ev.start.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} – {ev.end.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>
-                      </div>
-                    ))}
+                    <span className="day-detail-label" style={{color:"var(--warning)"}}>
+                      🟡 Available windows (not yet imported)
+                    </span>
+                    {pendingWindows.map((w, i) => {
+                      const preview = generateSlotsFromWindow(w.start, w.end);
+                      return (
+                        <div key={i} className="day-event-row" style={{background:"rgba(230,126,34,0.1)", justifyContent:"space-between"}}>
+                          <span>
+                            {w.start.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}
+                            {" – "}
+                            {w.end.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}
+                            <span style={{color:"var(--gray-light)", fontSize:"0.75rem", marginLeft:"0.5rem"}}>
+                              ({preview.length} slots)
+                            </span>
+                          </span>
+                          <button className="import-window-btn" onClick={() => handleImportWindow(w)}>
+                            + Import
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+
+                {/* Already imported slots */}
                 {selectedSlots.length > 0 && (
                   <div className="day-detail-section">
                     <span className="day-detail-label free">🟢 Open slots</span>
@@ -396,58 +473,17 @@ export default function AdminPanel() {
                     ))}
                   </div>
                 )}
-                {selectedBusy.length === 0 && selectedSlots.length === 0 && (
-                  <p style={{color:"var(--gray-light)", fontSize:"0.85rem"}}>Nothing scheduled — add slots below.</p>
+
+                {selectedWindows.length === 0 && selectedSlots.length === 0 && (
+                  <p style={{color:"var(--gray-light)", fontSize:"0.85rem"}}>
+                    Nothing here — add an "Available" event in your Barber Benjamin calendar on iPhone.
+                  </p>
                 )}
               </div>
             )}
           </div>
 
-          {/* Add slots form */}
-          <div className="slot-form">
-            <h3>ADD AVAILABLE TIME WINDOW</h3>
-            <p style={{color:"var(--gray-light)", fontSize:"0.85rem", marginBottom:"1rem"}}>
-              Slots every 30 min{calStatus === "loaded" ? ", busy times from Privé + Werk auto-blocked" : ""}.
-            </p>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Date</label>
-                <input type="date" value={slotDate} onChange={e => setSlotDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]} />
-              </div>
-              <div className="form-group">
-                <label>From</label>
-                <input type="time" value={fromTime} onChange={e => setFromTime(e.target.value)} />
-              </div>
-              <div className="form-group">
-                <label>Until</label>
-                <input type="time" value={toTime} onChange={e => setToTime(e.target.value)} />
-              </div>
-            </div>
-
-            {slotDate && fromTime && toTime && (
-              <div className="slot-preview">
-                <span className="slot-preview-label">
-                  {preview.length === 0
-                    ? "⚠️ No free slots — entire window is blocked by your calendar"
-                    : `Preview — ${preview.length} free slot${preview.length !== 1 ? "s" : ""}${blockedCount > 0 ? ` (${blockedCount} blocked by calendar)` : ""}:`}
-                </span>
-                <div className="slot-preview-pills">
-                  {preview.map((dt, i) => (
-                    <span key={i} className="slot-pill">
-                      {dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <button className="add-slot-btn" onClick={handleAddSlots} disabled={preview.length === 0}>
-              + Add {preview.length > 0 ? `${preview.length} Slot${preview.length !== 1 ? "s" : ""}` : "Slots"}
-            </button>
-          </div>
-
-          {/* All existing slots list */}
+          {/* All slots list */}
           <div className="existing-slots">
             <h3>ALL SLOTS</h3>
             {slots.length === 0 ? (
@@ -455,8 +491,8 @@ export default function AdminPanel() {
             ) : (
               <div className="slots-table">
                 {slots.map(slot => {
-                  const d = slot.datetime.toDate();
-                  const isPast = d < today;
+                  const d        = slot.datetime.toDate();
+                  const isPast   = d < today;
                   const isBooked = bookedSet.has(slot.id);
                   return (
                     <div key={slot.id} className="slot-row" style={isPast ? {opacity:0.4} : {}}>

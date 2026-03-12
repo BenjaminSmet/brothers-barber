@@ -525,3 +525,15 @@ body {
 }
 .day-event-row.busy { background: rgba(192,57,43,0.1); }
 .day-event-row.free { background: rgba(39,174,96,0.1); }
+
+/* Pending availability window day */
+.cal-day.has-pending { background: rgba(230,126,34,0.15); color: var(--warning); }
+
+/* Import window button */
+.import-window-btn {
+  background: var(--warning); border: none; color: white;
+  padding: 0.3rem 0.85rem; border-radius: 6px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 700;
+  transition: filter 0.15s; white-space: nowrap;
+}
+.import-window-btn:hover { filter: brightness(1.15); }
