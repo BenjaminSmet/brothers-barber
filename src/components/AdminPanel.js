@@ -6,15 +6,15 @@ import {
 } from "firebase/firestore";
 import { generateIcs, makeIcsDataUri } from "../utils/emailAndCalendar";
 
-// Try multiple proxies in order until one works
-const PROXIES = [
-  "https://api.allorigins.win/raw?url=",
-  "https://corsproxy.io/?url=",
-  "https://proxy.cors.sh/",
-];
-
+const CORS_PROXY = process.env.REACT_APP_CORS_PROXY;
 const ICAL_PRIVE = process.env.REACT_APP_ICAL_PRIVE;
 const ICAL_WERK  = process.env.REACT_APP_ICAL_WERK;
+
+async function fetchIcal(url) {
+  const res = await fetch(CORS_PROXY + encodeURIComponent(url));
+  if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
+  return res.text();
+}
 
 // ── iCal parser ───────────────────────────────────────────────
 function parseIcal(text) {
@@ -49,16 +49,6 @@ function parseIcal(text) {
   return events;
 }
 
-// Fetch a URL trying each proxy until one succeeds
-async function fetchWithFallback(url) {
-  for (const proxy of PROXIES) {
-    try {
-      const res = await fetch(proxy + encodeURIComponent(url));
-      if (res.ok) return await res.text();
-    } catch (_) {}
-  }
-  throw new Error("All proxies failed for: " + url);
-}
 
 // ── Slot generator ────────────────────────────────────────────
 function generateSlots(date, fromTime, toTime, busyEvents) {
@@ -143,7 +133,7 @@ export default function AdminPanel() {
     setCalStatus("loading");
     try {
       const urls = [ICAL_PRIVE, ICAL_WERK].filter(Boolean);
-      const texts = await Promise.all(urls.map(fetchWithFallback));
+      const texts = await Promise.all(urls.map(fetchIcal));
       const allEvents = texts.flatMap(parseIcal);
       setBusyEvents(allEvents);
       setCalStatus("loaded");
