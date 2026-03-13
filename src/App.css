@@ -537,3 +537,10 @@ body {
   transition: filter 0.15s; white-space: nowrap;
 }
 .import-window-btn:hover { filter: brightness(1.15); }
+
+/* Availability window label in booking page */
+.window-label {
+  font-size: 0.78rem; font-weight: 700; color: var(--gray-light);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+}

@@ -5,8 +5,8 @@ import { sendCancellationEmails, generateIcs, makeIcsDataUri } from "../utils/em
 
 export default function MyBookings({ user }) {
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [toast, setToast]       = useState(null);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
@@ -14,54 +14,49 @@ export default function MyBookings({ user }) {
   };
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      const q = query(collection(db, "bookings"), where("userId", "==", user.uid));
+    const load = async () => {
+      const q    = query(collection(db, "bookings"), where("userId", "==", user.uid));
       const snap = await getDocs(q);
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-      list.sort((a, b) => a.slotDate.toDate() - b.slotDate.toDate());
+      list.sort((a, b) => a.startTime.toDate() - b.startTime.toDate());
       setBookings(list);
       setLoading(false);
     };
-    fetchBookings();
+    load();
   }, [user.uid]);
 
   const handleCancel = async (booking) => {
     if (!window.confirm("Cancel this booking?")) return;
     await deleteDoc(doc(db, "bookings", booking.id));
     setBookings(prev => prev.filter(b => b.id !== booking.id));
-
     try {
       await sendCancellationEmails({
-        userName: booking.userName,
+        userName:  booking.userName,
         userEmail: booking.userEmail,
-        slotDate: booking.slotDate.toDate(),
-        slotTime: booking.slotTime,
+        slotDate:  booking.startTime.toDate(),
+        slotTime:  booking.slotTime,
         cancelledByAdmin: false,
       });
-    } catch (e) {
-      console.warn("Cancellation email failed:", e);
-    }
-
+    } catch (e) { console.warn("Cancellation email failed:", e); }
     showToast("Booking cancelled.");
   };
 
   const handleAddToCalendar = (booking) => {
     const ics = generateIcs({
       title: "✂️ Haircut — Barber Benjamin",
-      start: booking.slotDate.toDate(),
-      description: `Haircut appointment with Barber Benjamin at ${booking.slotTime}`,
+      start: booking.startTime.toDate(),
+      description: `Haircut at ${booking.slotTime} with Barber Benjamin`,
     });
-    const uri = makeIcsDataUri(ics);
     const a = document.createElement("a");
-    a.href = uri;
+    a.href = makeIcsDataUri(ics);
     a.download = "haircut-barber-benjamin.ics";
     a.click();
   };
 
-  const now = new Date();
-  const upcoming = bookings.filter(b => b.slotDate.toDate() >= now);
-  const past = bookings.filter(b => b.slotDate.toDate() < now);
+  const now      = new Date();
+  const upcoming = bookings.filter(b => b.startTime.toDate() >= now);
+  const past     = bookings.filter(b => b.startTime.toDate() <  now);
 
   if (loading) return <div className="empty-state"><div className="big-icon">⏳</div><p>Loading...</p></div>;
 
@@ -81,37 +76,43 @@ export default function MyBookings({ user }) {
         <div className="bookings-list">
           {upcoming.length > 0 && (
             <>
-              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "2px", marginBottom: "0.5rem" }}>UPCOMING</h3>
-              {upcoming.map(b => (
-                <div key={b.id} className="booking-item">
-                  <div className="booking-info">
-                    <h4>{b.slotDate.toDate().toLocaleDateString("en-GB", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</h4>
-                    <p>⏰ {b.slotTime}</p>
+              <h3 style={{fontFamily:"'Bebas Neue', sans-serif", letterSpacing:"2px", marginBottom:"0.5rem"}}>UPCOMING</h3>
+              {upcoming.map(b => {
+                const start = b.startTime.toDate();
+                const end   = new Date(start.getTime() + 60*60000);
+                return (
+                  <div key={b.id} className="booking-item">
+                    <div className="booking-info">
+                      <h4>{start.toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric", year:"numeric" })}</h4>
+                      <p>⏰ {start.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} – {end.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</p>
+                    </div>
+                    <div style={{display:"flex", alignItems:"center", gap:"0.5rem", flexWrap:"wrap"}}>
+                      <span className="booking-status status-upcoming">Upcoming</span>
+                      <button className="cal-mini-btn" onClick={() => handleAddToCalendar(b)} title="Add to Calendar">📅</button>
+                      <button className="cancel-btn" onClick={() => handleCancel(b)}>Cancel</button>
+                    </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                    <span className="booking-status status-upcoming">Upcoming</span>
-                    <button className="cal-mini-btn" onClick={() => handleAddToCalendar(b)} title="Add to Calendar">
-                      📅
-                    </button>
-                    <button className="cancel-btn" onClick={() => handleCancel(b)}>Cancel</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
 
           {past.length > 0 && (
             <>
-              <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "2px", margin: "1rem 0 0.5rem", color: "var(--gray-light)" }}>PAST</h3>
-              {past.map(b => (
-                <div key={b.id} className="booking-item past">
-                  <div className="booking-info">
-                    <h4>{b.slotDate.toDate().toLocaleDateString("en-GB", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</h4>
-                    <p>⏰ {b.slotTime}</p>
+              <h3 style={{fontFamily:"'Bebas Neue', sans-serif", letterSpacing:"2px", margin:"1rem 0 0.5rem", color:"var(--gray-light)"}}>PAST</h3>
+              {past.map(b => {
+                const start = b.startTime.toDate();
+                const end   = new Date(start.getTime() + 60*60000);
+                return (
+                  <div key={b.id} className="booking-item past">
+                    <div className="booking-info">
+                      <h4>{start.toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric", year:"numeric" })}</h4>
+                      <p>⏰ {start.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} – {end.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</p>
+                    </div>
+                    <span className="booking-status status-past">Done</span>
                   </div>
-                  <span className="booking-status status-past">Done</span>
-                </div>
-              ))}
+                );
+              })}
             </>
           )}
         </div>
