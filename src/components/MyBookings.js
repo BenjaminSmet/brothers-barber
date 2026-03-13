@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { db } from "../firebase";
-import { collection, query, where, getDocs, deleteDoc, doc } from "firebase/firestore";
-import { sendCancellationEmails, generateIcs, makeIcsDataUri } from "../utils/emailAndCalendar";
+import { collection, query, where, getDocs, updateDoc, doc } from "firebase/firestore";
+import { notifyCancellation, generateIcs, makeIcsDataUri } from "../utils/emailAndCalendar";
 
 export default function MyBookings({ user }) {
   const [bookings, setBookings] = useState([]);
@@ -15,11 +15,10 @@ export default function MyBookings({ user }) {
 
   useEffect(() => {
     const load = async () => {
-      const q    = query(collection(db, "bookings"), where("userId", "==", user.uid));
-      const snap = await getDocs(q);
+      const snap = await getDocs(query(collection(db, "bookings"), where("userId", "==", user.uid)));
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-      list.sort((a, b) => a.startTime.toDate() - b.startTime.toDate());
+      list.sort((a,b) => a.startTime.toDate() - b.startTime.toDate());
       setBookings(list);
       setLoading(false);
     };
@@ -28,17 +27,15 @@ export default function MyBookings({ user }) {
 
   const handleCancel = async (booking) => {
     if (!window.confirm("Cancel this booking?")) return;
-    await deleteDoc(doc(db, "bookings", booking.id));
-    setBookings(prev => prev.filter(b => b.id !== booking.id));
+    await updateDoc(doc(db, "bookings", booking.id), { status: "cancelled" });
+    setBookings(prev => prev.map(b => b.id === booking.id ? { ...b, status: "cancelled" } : b));
     try {
-      await sendCancellationEmails({
-        userName:  booking.userName,
-        userEmail: booking.userEmail,
-        slotDate:  booking.startTime.toDate(),
-        slotTime:  booking.slotTime,
+      await notifyCancellation({
+        userName: booking.userName, userEmail: booking.userEmail,
+        slotDate: booking.startTime.toDate(), slotTime: booking.slotTime,
         cancelledByAdmin: false,
       });
-    } catch (e) { console.warn("Cancellation email failed:", e); }
+    } catch (e) { console.warn("Email failed:", e); }
     showToast("Booking cancelled.");
   };
 
@@ -55,8 +52,16 @@ export default function MyBookings({ user }) {
   };
 
   const now      = new Date();
-  const upcoming = bookings.filter(b => b.startTime.toDate() >= now);
-  const past     = bookings.filter(b => b.startTime.toDate() <  now);
+  const upcoming = bookings.filter(b => b.startTime.toDate() >= now && b.status !== "cancelled" && b.status !== "denied");
+  const past     = bookings.filter(b => b.startTime.toDate() <  now || b.status === "cancelled" || b.status === "denied");
+
+  const statusBadge = (b) => {
+    if (b.status === "pending")   return <span className="booking-status status-pending">Pending</span>;
+    if (b.status === "confirmed") return <span className="booking-status status-upcoming">Confirmed</span>;
+    if (b.status === "denied")    return <span className="booking-status status-past">Denied</span>;
+    if (b.status === "cancelled") return <span className="booking-status status-past">Cancelled</span>;
+    return null;
+  };
 
   if (loading) return <div className="empty-state"><div className="big-icon">⏳</div><p>Loading...</p></div>;
 
@@ -87,9 +92,13 @@ export default function MyBookings({ user }) {
                       <p>⏰ {start.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} – {end.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</p>
                     </div>
                     <div style={{display:"flex", alignItems:"center", gap:"0.5rem", flexWrap:"wrap"}}>
-                      <span className="booking-status status-upcoming">Upcoming</span>
-                      <button className="cal-mini-btn" onClick={() => handleAddToCalendar(b)} title="Add to Calendar">📅</button>
-                      <button className="cancel-btn" onClick={() => handleCancel(b)}>Cancel</button>
+                      {statusBadge(b)}
+                      {b.status === "confirmed" && (
+                        <button className="cal-mini-btn" onClick={() => handleAddToCalendar(b)}>📅</button>
+                      )}
+                      {(b.status === "pending" || b.status === "confirmed") && (
+                        <button className="cancel-btn" onClick={() => handleCancel(b)}>Cancel</button>
+                      )}
                     </div>
                   </div>
                 );
@@ -109,7 +118,7 @@ export default function MyBookings({ user }) {
                       <h4>{start.toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric", year:"numeric" })}</h4>
                       <p>⏰ {start.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} – {end.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</p>
                     </div>
-                    <span className="booking-status status-past">Done</span>
+                    {statusBadge(b)}
                   </div>
                 );
               })}

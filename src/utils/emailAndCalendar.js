@@ -1,96 +1,152 @@
-import emailjs from "@emailjs/browser";
-
-const SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID;
-const PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY;
-const TEMPLATE_CONFIRM = process.env.REACT_APP_EMAILJS_TEMPLATE_CONFIRM;
-const TEMPLATE_ADMIN = process.env.REACT_APP_EMAILJS_TEMPLATE_ADMIN;
+const WORKER_URL = "https://ical-proxy.benjamin-smet29.workers.dev";
 const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL;
 
-function toIcalDate(date) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return (
-    `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
-    `T${pad(date.getHours())}${pad(date.getMinutes())}00`
-  );
+// ── Email sender ──────────────────────────────────────────────
+async function sendEmail({ to, subject, html }) {
+  const res = await fetch(WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ to, subject, html }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Email failed: ${text}`);
+  }
 }
 
-// Generate .ics content for a 30-min appointment
+// ── Email templates ───────────────────────────────────────────
+function bookingRequestHtml({ userName, slotDate, slotTime, photoUrl }) {
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0d0d0d;color:#f5f0e8;border-radius:16px;overflow:hidden;">
+      <div style="background:#c0392b;padding:24px 32px;">
+        <h1 style="margin:0;font-size:24px;letter-spacing:2px;">✂ BARBER BENJAMIN</h1>
+      </div>
+      <div style="padding:32px;">
+        <h2 style="margin:0 0 8px;">New Booking Request</h2>
+        <p style="color:#888;margin:0 0 24px;">Someone wants a haircut!</p>
+        <div style="background:#1a1a1a;border-radius:12px;padding:20px;margin-bottom:24px;">
+          <p style="margin:0 0 8px;"><strong>👤 Name:</strong> ${userName}</p>
+          <p style="margin:0 0 8px;"><strong>📅 Date:</strong> ${slotDate}</p>
+          <p style="margin:0;"><strong>⏰ Time:</strong> ${slotTime}</p>
+        </div>
+        ${photoUrl ? `
+        <div style="margin-bottom:24px;">
+          <p style="color:#888;font-size:13px;margin-bottom:8px;">REQUESTED STYLE</p>
+          <img src="${photoUrl}" style="width:100%;border-radius:12px;max-height:300px;object-fit:cover;" />
+        </div>` : ""}
+        <p style="color:#888;font-size:13px;">Log in to the admin panel to approve or deny this request.</p>
+      </div>
+    </div>`;
+}
+
+function bookingConfirmedHtml({ userName, slotDate, slotTime }) {
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0d0d0d;color:#f5f0e8;border-radius:16px;overflow:hidden;">
+      <div style="background:#c0392b;padding:24px 32px;">
+        <h1 style="margin:0;font-size:24px;letter-spacing:2px;">✂ BARBER BENJAMIN</h1>
+      </div>
+      <div style="padding:32px;">
+        <h2 style="margin:0 0 8px;">Booking Confirmed ✅</h2>
+        <p style="color:#888;margin:0 0 24px;">Your appointment is locked in!</p>
+        <div style="background:#1a1a1a;border-radius:12px;padding:20px;">
+          <p style="margin:0 0 8px;"><strong>👤 Name:</strong> ${userName}</p>
+          <p style="margin:0 0 8px;"><strong>📅 Date:</strong> ${slotDate}</p>
+          <p style="margin:0;"><strong>⏰ Time:</strong> ${slotTime}</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+function bookingDeniedHtml({ userName, slotDate, slotTime }) {
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0d0d0d;color:#f5f0e8;border-radius:16px;overflow:hidden;">
+      <div style="background:#2a2a2a;padding:24px 32px;">
+        <h1 style="margin:0;font-size:24px;letter-spacing:2px;">✂ BARBER BENJAMIN</h1>
+      </div>
+      <div style="padding:32px;">
+        <h2 style="margin:0 0 8px;">Booking Not Available ❌</h2>
+        <p style="color:#888;margin:0 0 24px;">Unfortunately this slot didn't work out.</p>
+        <div style="background:#1a1a1a;border-radius:12px;padding:20px;">
+          <p style="margin:0 0 8px;"><strong>📅 Date:</strong> ${slotDate}</p>
+          <p style="margin:0;"><strong>⏰ Time:</strong> ${slotTime}</p>
+        </div>
+        <p style="color:#888;font-size:13px;margin-top:24px;">Please go back to the site and pick another time.</p>
+      </div>
+    </div>`;
+}
+
+function cancellationHtml({ userName, slotDate, slotTime, cancelledBy }) {
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0d0d0d;color:#f5f0e8;border-radius:16px;overflow:hidden;">
+      <div style="background:#2a2a2a;padding:24px 32px;">
+        <h1 style="margin:0;font-size:24px;letter-spacing:2px;">✂ BARBER BENJAMIN</h1>
+      </div>
+      <div style="padding:32px;">
+        <h2 style="margin:0 0 8px;">Booking Cancelled</h2>
+        <p style="color:#888;margin:0 0 24px;">Cancelled by ${cancelledBy}.</p>
+        <div style="background:#1a1a1a;border-radius:12px;padding:20px;">
+          <p style="margin:0 0 8px;"><strong>👤 Name:</strong> ${userName}</p>
+          <p style="margin:0 0 8px;"><strong>📅 Date:</strong> ${slotDate}</p>
+          <p style="margin:0;"><strong>⏰ Time:</strong> ${slotTime}</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Public email functions ────────────────────────────────────
+export async function notifyAdminOfRequest({ userName, userEmail, slotDate, slotTime, photoUrl }) {
+  const dateStr = slotDate.toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
+  await sendEmail({
+    to: ADMIN_EMAIL,
+    subject: `✂️ New booking request — ${userName} on ${dateStr} at ${slotTime}`,
+    html: bookingRequestHtml({ userName, slotDate: dateStr, slotTime, photoUrl }),
+  });
+}
+
+export async function notifyBrotherConfirmed({ userName, userEmail, slotDate, slotTime }) {
+  const dateStr = slotDate.toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
+  await sendEmail({
+    to: userEmail,
+    subject: `✅ Booking confirmed — ${dateStr} at ${slotTime}`,
+    html: bookingConfirmedHtml({ userName, slotDate: dateStr, slotTime }),
+  });
+}
+
+export async function notifyBrotherDenied({ userName, userEmail, slotDate, slotTime }) {
+  const dateStr = slotDate.toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
+  await sendEmail({
+    to: userEmail,
+    subject: `❌ Booking not available — ${dateStr} at ${slotTime}`,
+    html: bookingDeniedHtml({ userName, slotDate: dateStr, slotTime }),
+  });
+}
+
+export async function notifyCancellation({ userName, userEmail, slotDate, slotTime, cancelledByAdmin }) {
+  const dateStr = slotDate.toLocaleDateString("en-GB", { weekday:"long", month:"long", day:"numeric", year:"numeric" });
+  const cancelledBy = cancelledByAdmin ? "Benjamin" : userName;
+  const html = cancellationHtml({ userName, slotDate: dateStr, slotTime, cancelledBy });
+  await sendEmail({ to: userEmail, subject: `Booking cancelled — ${dateStr} at ${slotTime}`, html });
+  await sendEmail({ to: ADMIN_EMAIL, subject: `Booking cancelled — ${userName} on ${dateStr} at ${slotTime}`, html });
+}
+
+// ── iCal helpers ──────────────────────────────────────────────
+function toIcalDate(date) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth()+1)}${pad(date.getDate())}T${pad(date.getHours())}${pad(date.getMinutes())}00`;
+}
+
 export function generateIcs({ title, start, description }) {
-  const end = new Date(start.getTime() + 30 * 60 * 1000);
-  const now = toIcalDate(new Date());
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
   return [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//Barber Benjamin//EN",
-    "CALSCALE:GREGORIAN",
-    "METHOD:PUBLISH",
-    "BEGIN:VEVENT",
-    `DTSTART:${toIcalDate(start)}`,
-    `DTEND:${toIcalDate(end)}`,
-    `DTSTAMP:${now}`,
-    `SUMMARY:${title}`,
-    `DESCRIPTION:${description}`,
-    "END:VEVENT",
-    "END:VCALENDAR",
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Barber Benjamin//EN",
+    "CALSCALE:GREGORIAN", "METHOD:PUBLISH", "BEGIN:VEVENT",
+    `DTSTART:${toIcalDate(start)}`, `DTEND:${toIcalDate(end)}`,
+    `DTSTAMP:${toIcalDate(new Date())}`,
+    `SUMMARY:${title}`, `DESCRIPTION:${description}`,
+    "END:VEVENT", "END:VCALENDAR",
   ].join("\r\n");
 }
 
-// Create a downloadable data URI from .ics content
 export function makeIcsDataUri(icsContent) {
   return "data:text/calendar;charset=utf-8," + encodeURIComponent(icsContent);
-}
-
-// Send booking confirmation to brother + notification to admin
-export async function sendBookingEmails({ userName, userEmail, slotDate, slotTime }) {
-  const dateStr = slotDate.toLocaleDateString("en-GB", {
-    weekday: "long", month: "long", day: "numeric", year: "numeric",
-  });
-
-  await emailjs.send(SERVICE_ID, TEMPLATE_CONFIRM, {
-    to_name: userName,
-    to_email: userEmail,
-    slot_date: dateStr,
-    slot_time: slotTime,
-    email_subject: `✂️ Booking confirmed — ${dateStr} at ${slotTime}`,
-    is_cancellation: false,
-    cancelled_by: "",
-  }, PUBLIC_KEY);
-
-  await emailjs.send(SERVICE_ID, TEMPLATE_ADMIN, {
-    to_email: ADMIN_EMAIL,
-    booker_name: userName,
-    booker_email: userEmail,
-    slot_date: dateStr,
-    slot_time: slotTime,
-    email_subject: `New booking — ${userName} on ${dateStr} at ${slotTime}`,
-    message: `${userName} (${userEmail}) just booked a slot.`,
-  }, PUBLIC_KEY);
-}
-
-// Send cancellation emails to brother and admin
-export async function sendCancellationEmails({ userName, userEmail, slotDate, slotTime, cancelledByAdmin }) {
-  const dateStr = slotDate.toLocaleDateString("en-GB", {
-    weekday: "long", month: "long", day: "numeric", year: "numeric",
-  });
-  const cancelledBy = cancelledByAdmin ? "Benjamin (admin)" : userName;
-
-  await emailjs.send(SERVICE_ID, TEMPLATE_CONFIRM, {
-    to_name: userName,
-    to_email: userEmail,
-    slot_date: dateStr,
-    slot_time: slotTime,
-    email_subject: `❌ Booking cancelled — ${dateStr} at ${slotTime}`,
-    is_cancellation: true,
-    cancelled_by: cancelledBy,
-  }, PUBLIC_KEY);
-
-  await emailjs.send(SERVICE_ID, TEMPLATE_ADMIN, {
-    to_email: ADMIN_EMAIL,
-    booker_name: userName,
-    booker_email: userEmail,
-    slot_date: dateStr,
-    slot_time: slotTime,
-    email_subject: `❌ Cancellation — ${userName} on ${dateStr} at ${slotTime}`,
-    message: `${cancelledBy} cancelled the booking for ${userName}.`,
-  }, PUBLIC_KEY);
 }
