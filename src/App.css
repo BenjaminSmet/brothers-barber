@@ -62,51 +62,131 @@ body {
 
 /* APP SHELL */
 .app { min-height: 100vh; display: flex; flex-direction: column; }
-.main-content { flex: 1; padding: 2rem 1rem; max-width: 900px; margin: 0 auto; width: 100%; }
+.main-content {
+  flex: 1;
+  padding: 1.25rem 1rem 6rem; /* bottom padding for tab bar */
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+  padding-top: calc(64px + 1.25rem); /* clear the fixed header */
+}
 
-/* NAVBAR */
-.navbar {
-  background: var(--black);
-  border-bottom: 1px solid var(--border);
-  padding: 0 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+/* ── TOP HEADER ── */
+.top-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
   height: 64px;
-  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.25rem;
+  /* iOS 26 liquid glass */
+  background: rgba(13, 13, 13, 0.55);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
 }
-.navbar-brand {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.6rem;
-  letter-spacing: 3px;
-  color: var(--white);
+
+.header-brand {
   display: flex; align-items: center; gap: 0.5rem;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.45rem; letter-spacing: 3px; color: var(--white);
 }
-.navbar-brand span { color: var(--red); }
-.navbar-nav { display: flex; gap: 0.25rem; }
-.nav-btn {
-  background: none; border: none; color: var(--gray-light);
-  padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;
-  font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
-  transition: all 0.15s; font-weight: 500;
+.header-scissors { color: var(--red); font-style: normal; }
+.header-title em { color: var(--red); font-style: normal; }
+
+/* Avatar button */
+.avatar-btn {
+  background: none; border: none; cursor: pointer;
+  padding: 0; border-radius: 50%;
+  width: 38px; height: 38px;
+  transition: transform 0.15s, box-shadow 0.15s;
+  position: relative;
 }
-.nav-btn:hover { color: var(--white); background: var(--gray); }
-.nav-btn.active { color: var(--white); background: var(--gray); }
-.nav-btn.admin-btn { color: var(--red); }
-.nav-btn.admin-btn:hover, .nav-btn.admin-btn.active { background: rgba(192,57,43,0.15); color: var(--red); }
-.navbar-user { display: flex; align-items: center; gap: 0.75rem; }
-.user-avatar {
-  width: 34px; height: 34px; border-radius: 50%;
-  border: 2px solid var(--border); object-fit: cover;
+.avatar-btn:active { transform: scale(0.93); }
+.avatar-img {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.2); object-fit: cover;
 }
-.user-name { font-size: 0.85rem; color: var(--gray-light); }
-.signout-btn {
-  background: none; border: 1px solid var(--border); color: var(--gray-light);
-  padding: 0.35rem 0.85rem; border-radius: 6px; cursor: pointer;
-  font-size: 0.8rem; font-family: 'DM Sans', sans-serif;
-  transition: all 0.15s;
+.avatar-fallback {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--red); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 1rem;
+  border: 2px solid rgba(255,255,255,0.2);
 }
-.signout-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* Account dropdown */
+.header-account { position: relative; }
+.account-dropdown {
+  position: absolute; top: calc(100% + 10px); right: 0;
+  min-width: 220px;
+  background: rgba(22, 22, 22, 0.85);
+  backdrop-filter: saturate(180%) blur(28px);
+  -webkit-backdrop-filter: saturate(180%) blur(28px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  animation: dropdownIn 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes dropdownIn {
+  from { opacity: 0; transform: scale(0.92) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1)   translateY(0); }
+}
+.dropdown-user-info {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 1rem 1rem 0.75rem;
+}
+.dropdown-avatar {
+  width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+  border: 2px solid rgba(255,255,255,0.15); flex-shrink: 0;
+}
+.dropdown-name { font-weight: 600; font-size: 0.9rem; color: var(--white); }
+.dropdown-email { font-size: 0.75rem; color: var(--gray-light); margin-top: 2px; }
+.dropdown-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 0; }
+.dropdown-signout {
+  width: 100%; background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.85rem 1rem; color: #e74c3c;
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500;
+  transition: background 0.15s;
+  text-align: left;
+}
+.dropdown-signout:hover { background: rgba(231,76,60,0.1); }
+
+/* ── BOTTOM TAB BAR ── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  display: flex; align-items: stretch;
+  /* iOS 26 liquid glass */
+  background: rgba(13, 13, 13, 0.6);
+  backdrop-filter: saturate(200%) blur(28px);
+  -webkit-backdrop-filter: saturate(200%) blur(28px);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
+}
+
+.tab-item {
+  flex: 1; background: none; border: none; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 0.5rem 0;
+  color: rgba(255,255,255,0.4);
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+}
+.tab-item.active { color: var(--white); }
+.tab-item.active::before {
+  content: '';
+  position: absolute; top: 8px;
+  width: 32px; height: 32px; border-radius: 10px;
+  background: rgba(192,57,43,0.2);
+  z-index: -1;
+}
+.tab-icon { font-size: 1.3rem; line-height: 1; }
+.tab-label {
+  font-size: 0.65rem; font-weight: 600;
+  letter-spacing: 0.3px; text-transform: uppercase;
+}
 
 /* LOGIN */
 .login-page {
