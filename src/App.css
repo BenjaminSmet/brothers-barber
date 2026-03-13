@@ -64,23 +64,21 @@ body {
 .app { min-height: 100vh; display: flex; flex-direction: column; }
 .main-content {
   flex: 1;
-  padding: 1.25rem 1rem 6rem; /* bottom padding for tab bar */
+  padding: 1.25rem 1rem 7rem; /* bottom padding for floating tab bar */
   max-width: 900px;
   margin: 0 auto;
   width: 100%;
-  padding-top: calc(64px + 1.25rem); /* clear the fixed header */
+  padding-top: calc(env(safe-area-inset-top, 44px) + 56px); /* clear dynamic island + header */
 }
 
 /* ── TOP HEADER ── */
 .top-header {
   position: fixed; top: 0; left: 0; right: 0; z-index: 200;
-  height: 64px;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 1.25rem;
-  /* iOS 26 liquid glass */
-  background: rgba(13, 13, 13, 0.55);
-  backdrop-filter: saturate(180%) blur(24px);
-  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  padding: env(safe-area-inset-top, 14px) 1.25rem 12px;
+  background: rgba(13, 13, 13, 0.72);
+  backdrop-filter: saturate(180%) blur(28px);
+  -webkit-backdrop-filter: saturate(180%) blur(28px);
   border-bottom: 1px solid rgba(255,255,255,0.07);
 }
 
@@ -152,40 +150,48 @@ body {
 }
 .dropdown-signout:hover { background: rgba(231,76,60,0.1); }
 
-/* ── BOTTOM TAB BAR ── */
+/* ── FLOATING BOTTOM TAB BAR ── */
 .bottom-nav {
-  position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
-  display: flex; align-items: stretch;
-  /* iOS 26 liquid glass */
-  background: rgba(13, 13, 13, 0.6);
-  backdrop-filter: saturate(200%) blur(28px);
-  -webkit-backdrop-filter: saturate(200%) blur(28px);
-  border-top: 1px solid rgba(255,255,255,0.08);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 16px) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: inline-flex; align-items: center;
+  gap: 4px;
+  background: rgba(28, 28, 30, 0.82);
+  backdrop-filter: saturate(200%) blur(32px);
+  -webkit-backdrop-filter: saturate(200%) blur(32px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  padding: 6px 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.06) inset;
+  white-space: nowrap;
 }
 
 .tab-item {
-  flex: 1; background: none; border: none; cursor: pointer;
+  background: none; border: none; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px; padding: 0.5rem 0;
-  color: rgba(255,255,255,0.4);
-  transition: color 0.15s;
+  gap: 2px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  color: rgba(255,255,255,0.45);
+  transition: color 0.2s, background 0.2s;
   -webkit-tap-highlight-color: transparent;
   position: relative;
+  min-width: 72px;
 }
-.tab-item.active { color: var(--white); }
-.tab-item.active::before {
-  content: '';
-  position: absolute; top: 8px;
-  width: 32px; height: 32px; border-radius: 10px;
-  background: rgba(192,57,43,0.2);
-  z-index: -1;
+.tab-item.active {
+  background: rgba(192, 57, 43, 0.22);
+  color: #fff;
 }
-.tab-icon { font-size: 1.3rem; line-height: 1; }
+.tab-item:not(.active):active {
+  background: rgba(255,255,255,0.07);
+}
+.tab-icon { font-size: 1.2rem; line-height: 1; }
 .tab-label {
-  font-size: 0.65rem; font-weight: 600;
-  letter-spacing: 0.3px; text-transform: uppercase;
+  font-size: 0.6rem; font-weight: 700;
+  letter-spacing: 0.4px; text-transform: uppercase;
 }
 
 /* LOGIN */
@@ -304,13 +310,28 @@ body {
 
 /* Toast */
 .toast {
-  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
-  background: var(--success); color: white; padding: 1rem 2rem;
-  border-radius: 12px; font-weight: 600; z-index: 999;
-  animation: slideUp 0.3s ease;
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 44px) + 68px);
+  left: 50%; transform: translateX(-50%);
+  background: rgba(39, 174, 96, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: white; padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  font-weight: 600; font-size: 0.88rem;
+  z-index: 999;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.15);
+  animation: toastDrop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.toast.error { background: var(--red); }
-@keyframes slideUp { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.toast.error {
+  background: rgba(192, 57, 43, 0.92);
+}
+@keyframes toastDrop {
+  from { opacity: 0; transform: translate(-50%, -12px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
 
 /* MY BOOKINGS */
 .bookings-list { display: flex; flex-direction: column; gap: 1rem; }
