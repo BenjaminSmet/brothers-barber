@@ -61,7 +61,8 @@ body {
 .blocked-card button:hover { background: var(--gray-mid); }
 
 /* APP SHELL */
-.app { min-height: 100vh; display: flex; flex-direction: column; }
+.app { min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
+body { overflow-x: hidden; }
 .main-content {
   flex: 1;
   padding: 1.25rem 1rem 7rem; /* bottom padding for floating tab bar */
@@ -153,46 +154,65 @@ body {
 /* ── FLOATING BOTTOM TAB BAR ── */
 .bottom-nav {
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom, 16px) + 12px);
+  bottom: calc(env(safe-area-inset-bottom, 16px) + 14px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 200;
   display: inline-flex; align-items: center;
-  gap: 4px;
-  background: rgba(28, 28, 30, 0.82);
-  backdrop-filter: saturate(200%) blur(32px);
-  -webkit-backdrop-filter: saturate(200%) blur(32px);
-  border: 1px solid rgba(255,255,255,0.12);
+  gap: 2px;
+  /* Deep liquid glass */
+  background: rgba(20, 20, 22, 0.75);
+  backdrop-filter: saturate(220%) blur(40px) brightness(1.1);
+  -webkit-backdrop-filter: saturate(220%) blur(40px) brightness(1.1);
+  border: 1px solid rgba(255,255,255,0.16);
+  border-bottom-color: rgba(255,255,255,0.06);
   border-radius: 999px;
-  padding: 6px 8px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.06) inset;
-  white-space: nowrap;
+  padding: 7px 7px;
+  box-shadow:
+    0 12px 40px rgba(0,0,0,0.55),
+    0 1px 0 rgba(255,255,255,0.1) inset,
+    0 -1px 0 rgba(0,0,0,0.3) inset;
+}
+
+/* On desktop show classic top navbar, hide bottom nav */
+@media (min-width: 768px) {
+  .bottom-nav { display: none; }
+  .top-header { position: sticky; }
+  .main-content { padding-top: 1.5rem; padding-bottom: 2rem; }
 }
 
 .tab-item {
   background: none; border: none; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px;
-  padding: 8px 20px;
+  gap: 3px;
+  padding: 10px 0;
+  width: 82px; /* fixed equal width for all tabs */
   border-radius: 999px;
-  color: rgba(255,255,255,0.45);
-  transition: color 0.2s, background 0.2s;
+  color: rgba(255,255,255,0.4);
+  transition: color 0.3s ease, background 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
   -webkit-tap-highlight-color: transparent;
   position: relative;
-  min-width: 72px;
 }
 .tab-item.active {
-  background: rgba(192, 57, 43, 0.22);
+  background: rgba(192, 57, 43, 0.28);
   color: #fff;
+  box-shadow: 0 0 0 1px rgba(192,57,43,0.2) inset;
 }
 .tab-item:not(.active):active {
-  background: rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.08);
+  transition: background 0.1s;
 }
-.tab-icon { font-size: 1.2rem; line-height: 1; }
+.tab-icon {
+  font-size: 1.25rem; line-height: 1;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.tab-item.active .tab-icon { transform: scale(1.15); }
 .tab-label {
-  font-size: 0.6rem; font-weight: 700;
-  letter-spacing: 0.4px; text-transform: uppercase;
+  font-size: 0.58rem; font-weight: 700;
+  letter-spacing: 0.3px; text-transform: uppercase;
+  transition: opacity 0.2s;
 }
+.tab-item:not(.active) .tab-label { opacity: 0.7; }
 
 /* LOGIN */
 .login-page {
@@ -360,14 +380,25 @@ body {
 .empty-state .big-icon { font-size: 3rem; margin-bottom: 1rem; }
 
 /* ADMIN PANEL */
-.admin-tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; }
+.admin-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
 .admin-tab {
   background: var(--gray); border: none; color: var(--gray-light);
-  padding: 0.6rem 1.25rem; border-radius: 8px; cursor: pointer;
+  padding: 0.6rem 0.4rem; border-radius: 8px; cursor: pointer;
   font-family: 'DM Sans', sans-serif; font-weight: 500; transition: all 0.15s;
+  font-size: 0.78rem; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .admin-tab.active { background: var(--red); color: white; }
 .admin-tab:hover:not(.active) { color: var(--white); }
+@media (max-width: 480px) {
+  .admin-tabs { grid-template-columns: repeat(2, 1fr); }
+}
 
 .slot-manager { display: flex; flex-direction: column; gap: 1.5rem; }
 .slot-form {
@@ -719,3 +750,28 @@ body {
 
 /* ── Pending status badge ── */
 .status-pending { background: rgba(230,126,34,0.2); color: #e67e22; }
+
+/* ── DESKTOP NAV (top header, hidden on mobile) ── */
+.desktop-nav {
+  display: none;
+  gap: 0.25rem;
+}
+@media (min-width: 768px) {
+  .desktop-nav { display: flex; }
+}
+.desktop-nav-btn {
+  background: none; border: none; color: rgba(255,255,255,0.5);
+  padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 500;
+  transition: all 0.15s;
+}
+.desktop-nav-btn:hover { color: var(--white); background: rgba(255,255,255,0.07); }
+.desktop-nav-btn.active { color: var(--white); background: rgba(255,255,255,0.1); }
+
+/* ── ADMIN PANEL overflow guard ── */
+.slot-manager, .whitelist-manager, .upcoming-bookings {
+  width: 100%; overflow-x: hidden;
+}
+.admin-booking-card {
+  flex-wrap: wrap;
+}

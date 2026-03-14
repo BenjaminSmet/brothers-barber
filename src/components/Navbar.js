@@ -22,18 +22,25 @@ export default function Navbar({ user, page, setPage, isAdmin }) {
 
   return (
     <>
-      {/* ── Top header ── */}
+      {/* ── Top header (always visible) ── */}
       <header className="top-header">
         <div className="header-brand">
           <span className="header-scissors">✂</span>
           <span className="header-title">BARBER <em>BENJAMIN</em></span>
         </div>
+
+        {/* Desktop nav links — hidden on mobile */}
+        <nav className="desktop-nav">
+          <button className={`desktop-nav-btn ${page === "book" ? "active" : ""}`} onClick={() => setPage("book")}>Book</button>
+          <button className={`desktop-nav-btn ${page === "mybookings" ? "active" : ""}`} onClick={() => setPage("mybookings")}>My Bookings</button>
+          {isAdmin && (
+            <button className={`desktop-nav-btn ${page === "admin" ? "active" : ""}`} onClick={() => setPage("admin")}>⚙ Admin</button>
+          )}
+        </nav>
+
+        {/* Account avatar + dropdown */}
         <div className="header-account" ref={dropdownRef}>
-          <button
-            className="avatar-btn"
-            onClick={() => setDropdownOpen(o => !o)}
-            aria-label="Account menu"
-          >
+          <button className="avatar-btn" onClick={() => setDropdownOpen(o => !o)} aria-label="Account menu">
             {user.photoURL
               ? <img src={user.photoURL} alt="" className="avatar-img" />
               : <div className="avatar-fallback">{user.displayName?.[0] ?? "?"}</div>
@@ -57,27 +64,18 @@ export default function Navbar({ user, page, setPage, isAdmin }) {
         </div>
       </header>
 
-      {/* ── Bottom tab bar ── */}
+      {/* ── Bottom tab bar — mobile only ── */}
       <nav className="bottom-nav">
-        <button
-          className={`tab-item ${page === "book" ? "active" : ""}`}
-          onClick={() => setPage("book")}
-        >
+        <button className={`tab-item ${page === "book" ? "active" : ""}`} onClick={() => setPage("book")}>
           <span className="tab-icon">✂️</span>
           <span className="tab-label">Book</span>
         </button>
-        <button
-          className={`tab-item ${page === "mybookings" ? "active" : ""}`}
-          onClick={() => setPage("mybookings")}
-        >
+        <button className={`tab-item ${page === "mybookings" ? "active" : ""}`} onClick={() => setPage("mybookings")}>
           <span className="tab-icon">📋</span>
-          <span className="tab-label">My Bookings</span>
+          <span className="tab-label">Bookings</span>
         </button>
         {isAdmin && (
-          <button
-            className={`tab-item ${page === "admin" ? "active" : ""}`}
-            onClick={() => setPage("admin")}
-          >
+          <button className={`tab-item ${page === "admin" ? "active" : ""}`} onClick={() => setPage("admin")}>
             <span className="tab-icon">⚙️</span>
             <span className="tab-label">Admin</span>
           </button>
