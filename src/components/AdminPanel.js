@@ -302,21 +302,19 @@ export default function AdminPanel() {
             <div className="empty-state"><div className="big-icon">📭</div><p>No pending requests.</p></div>
           ) : pendingBookings.map(b => (
             <div key={b.id} className="admin-booking-card pending-card">
-              <div style={{flex:1}}>
+              <div style={{flex:1, minWidth:0}}>
                 <div className="who">{b.userName}</div>
                 <div className="when">{fmt(b.startTime.toDate())} at {fmtTime(b.startTime.toDate())}</div>
                 <small style={{color:"var(--gray-light)"}}>{b.userEmail}</small>
               </div>
-              <div style={{display:"flex", flexDirection:"column", alignItems:"flex-end", gap:"0.5rem"}}>
+              <div style={{display:"flex", flexDirection:"row", alignItems:"center", gap:"0.5rem", flexShrink:0, marginTop:"0.5rem", flexBasis:"100%"}}>
                 {b.photoUrl && (
                   <button className="view-photo-btn" onClick={() => setPhotoModal(b.photoUrl)}>
-                    📸 View photo
+                    📸 Photo
                   </button>
                 )}
-                <div style={{display:"flex", gap:"0.5rem"}}>
-                  <button className="deny-btn"    onClick={() => handleDeny(b)}>✕ Deny</button>
-                  <button className="approve-btn" onClick={() => handleApprove(b)}>✓ Approve</button>
-                </div>
+                <button className="deny-btn"    onClick={() => handleDeny(b)}>✕ Deny</button>
+                <button className="approve-btn" onClick={() => handleApprove(b)}>✓ Approve</button>
               </div>
             </div>
           ))}

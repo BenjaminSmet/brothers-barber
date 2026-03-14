@@ -160,7 +160,6 @@ body { overflow-x: hidden; }
   z-index: 200;
   display: inline-flex; align-items: center;
   gap: 2px;
-  /* Deep liquid glass */
   background: rgba(20, 20, 22, 0.75);
   backdrop-filter: saturate(220%) blur(40px) brightness(1.1);
   -webkit-backdrop-filter: saturate(220%) blur(40px) brightness(1.1);
@@ -168,10 +167,13 @@ body { overflow-x: hidden; }
   border-bottom-color: rgba(255,255,255,0.06);
   border-radius: 999px;
   padding: 7px 7px;
+  position: fixed; /* keep fixed for viewport anchoring */
+  isolation: isolate; /* create stacking context for pill */
   box-shadow:
     0 12px 40px rgba(0,0,0,0.55),
     0 1px 0 rgba(255,255,255,0.1) inset,
     0 -1px 0 rgba(0,0,0,0.3) inset;
+  position: fixed;
 }
 
 /* On desktop show classic top navbar, hide bottom nav */
@@ -189,19 +191,30 @@ body { overflow-x: hidden; }
   width: 82px; /* fixed equal width for all tabs */
   border-radius: 999px;
   color: rgba(255,255,255,0.4);
-  transition: color 0.3s ease, background 0.35s cubic-bezier(0.34, 1.2, 0.64, 1);
+  transition: color 0.25s ease, background 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   -webkit-tap-highlight-color: transparent;
   position: relative;
 }
 .tab-item.active {
-  background: rgba(192, 57, 43, 0.28);
   color: #fff;
-  box-shadow: 0 0 0 1px rgba(192,57,43,0.2) inset;
 }
 .tab-item:not(.active):active {
   background: rgba(255,255,255,0.08);
   transition: background 0.1s;
 }
+/* Sliding pill indicator */
+.tab-slider-pill {
+  position: absolute;
+  top: 7px; bottom: 7px;
+  border-radius: 999px;
+  background: rgba(192, 57, 43, 0.3);
+  box-shadow: 0 0 0 1px rgba(192,57,43,0.25) inset;
+  transition: left 0.35s cubic-bezier(0.34, 1.15, 0.64, 1),
+              width 0.35s cubic-bezier(0.34, 1.15, 0.64, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+.tab-item { z-index: 1; }
 .tab-icon {
   font-size: 1.25rem; line-height: 1;
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -678,7 +691,10 @@ body { overflow-x: hidden; }
 }
 
 /* ── Pending booking card ── */
-.pending-card { border-left: 3px solid var(--warning) !important; }
+.pending-card {
+  border-left: 3px solid var(--warning) !important;
+  flex-wrap: wrap;
+}
 
 /* ── Approve / Deny buttons ── */
 .approve-btn {

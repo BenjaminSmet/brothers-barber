@@ -4,7 +4,23 @@ import { auth } from "../firebase";
 
 export default function Navbar({ user, page, setPage, isAdmin }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [pillStyle, setPillStyle] = useState({});
   const dropdownRef = useRef(null);
+  const tabRefs = useRef({});
+  const navRef = useRef(null);
+
+  // Slide the pill to the active tab
+  useEffect(() => {
+    const activeTab = tabRefs.current[page];
+    const nav = navRef.current;
+    if (!activeTab || !nav) return;
+    const navRect = nav.getBoundingClientRect();
+    const tabRect = activeTab.getBoundingClientRect();
+    setPillStyle({
+      left: tabRect.left - navRect.left,
+      width: tabRect.width,
+    });
+  }, [page, isAdmin]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -20,25 +36,28 @@ export default function Navbar({ user, page, setPage, isAdmin }) {
     };
   }, []);
 
+  const tabs = [
+    { key: "book",       icon: "✂️", label: "Book" },
+    { key: "mybookings", icon: "📋", label: "Bookings" },
+    ...(isAdmin ? [{ key: "admin", icon: "⚙️", label: "Admin" }] : []),
+  ];
+
   return (
     <>
-      {/* ── Top header (always visible) ── */}
       <header className="top-header">
         <div className="header-brand">
           <span className="header-scissors">✂</span>
           <span className="header-title">BARBER <em>BENJAMIN</em></span>
         </div>
 
-        {/* Desktop nav links — hidden on mobile */}
         <nav className="desktop-nav">
-          <button className={`desktop-nav-btn ${page === "book" ? "active" : ""}`} onClick={() => setPage("book")}>Book</button>
-          <button className={`desktop-nav-btn ${page === "mybookings" ? "active" : ""}`} onClick={() => setPage("mybookings")}>My Bookings</button>
-          {isAdmin && (
-            <button className={`desktop-nav-btn ${page === "admin" ? "active" : ""}`} onClick={() => setPage("admin")}>⚙ Admin</button>
-          )}
+          {tabs.map(t => (
+            <button key={t.key} className={`desktop-nav-btn ${page === t.key ? "active" : ""}`} onClick={() => setPage(t.key)}>
+              {t.label}
+            </button>
+          ))}
         </nav>
 
-        {/* Account avatar + dropdown */}
         <div className="header-account" ref={dropdownRef}>
           <button className="avatar-btn" onClick={() => setDropdownOpen(o => !o)} aria-label="Account menu">
             {user.photoURL
@@ -64,22 +83,23 @@ export default function Navbar({ user, page, setPage, isAdmin }) {
         </div>
       </header>
 
-      {/* ── Bottom tab bar — mobile only ── */}
-      <nav className="bottom-nav">
-        <button className={`tab-item ${page === "book" ? "active" : ""}`} onClick={() => setPage("book")}>
-          <span className="tab-icon">✂️</span>
-          <span className="tab-label">Book</span>
-        </button>
-        <button className={`tab-item ${page === "mybookings" ? "active" : ""}`} onClick={() => setPage("mybookings")}>
-          <span className="tab-icon">📋</span>
-          <span className="tab-label">Bookings</span>
-        </button>
-        {isAdmin && (
-          <button className={`tab-item ${page === "admin" ? "active" : ""}`} onClick={() => setPage("admin")}>
-            <span className="tab-icon">⚙️</span>
-            <span className="tab-label">Admin</span>
-          </button>
+      {/* Bottom tab bar with sliding pill */}
+      <nav className="bottom-nav" ref={navRef}>
+        {/* Sliding background pill */}
+        {pillStyle.width && (
+          <div className="tab-slider-pill" style={pillStyle} />
         )}
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            ref={el => tabRefs.current[t.key] = el}
+            className={`tab-item ${page === t.key ? "active" : ""}`}
+            onClick={() => setPage(t.key)}
+          >
+            <span className="tab-icon">{t.icon}</span>
+            <span className="tab-label">{t.label}</span>
+          </button>
+        ))}
       </nav>
     </>
   );
