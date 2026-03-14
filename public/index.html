@@ -16,5 +16,27 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('%PUBLIC_URL%/sw.js').then(reg => {
+            // Check for updates every time the app is focused
+            reg.update();
+            document.addEventListener('visibilitychange', () => {
+              if (document.visibilityState === 'visible') reg.update();
+            });
+            // When a new version is found, reload automatically
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'activated') {
+                  window.location.reload();
+                }
+              });
+            });
+          });
+        });
+      }
+    </script>
   </body>
 </html>
